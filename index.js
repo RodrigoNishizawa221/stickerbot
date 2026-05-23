@@ -5,9 +5,6 @@ const fs = require('fs');
 
 const QUEUE_FILE = './queue.json';
 
-// ======================
-// LOAD QUEUE
-// ======================
 let queue = [];
 
 if (fs.existsSync(QUEUE_FILE)) {
@@ -18,25 +15,22 @@ if (fs.existsSync(QUEUE_FILE)) {
     }
 }
 
-// ======================
-// SAVE QUEUE
-// ======================
 function saveQueue() {
-    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2));
+    fs.writeFileSync(
+        QUEUE_FILE,
+        JSON.stringify(queue, null, 2)
+    );
 }
 
-// ======================
-// CLIENT
-// ======================
 const client = new Client({
+
     authStrategy: new LocalAuth({
         dataPath: './session'
     }),
 
     puppeteer: {
-        headless: true,
 
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        headless: true,
 
         args: [
             '--no-sandbox',
@@ -45,9 +39,6 @@ const client = new Client({
     }
 });
 
-// ======================
-// QR CODE
-// ======================
 client.on('qr', qr => {
 
     console.log('SCAN QR CODE');
@@ -57,19 +48,15 @@ client.on('qr', qr => {
     });
 });
 
-// ======================
-// READY
-// ======================
 client.on('ready', async () => {
 
     console.log('BOT READY 🎉');
 
-    // ======================
-    // PROCESS QUEUE
-    // ======================
     if (queue.length > 0) {
 
-        console.log(`PROCESSING ${queue.length} QUEUED ITEMS`);
+        console.log(
+            `PROCESSING ${queue.length} ITEMS`
+        );
 
         for (const item of queue) {
 
@@ -83,35 +70,30 @@ client.on('ready', async () => {
 
             } catch (err) {
 
-                console.log('QUEUE ERROR:', err);
+                console.log(err);
             }
         }
 
         queue = [];
+
         saveQueue();
     }
 });
 
-// ======================
-// MESSAGE EVENT
-// ======================
 client.on('message', async message => {
 
     try {
 
-        // ======================
         // IMAGE STICKER
-        // ======================
         if (
             message.hasMedia &&
             message.body === '!s'
         ) {
 
-            const media = await message.downloadMedia();
+            const media =
+                await message.downloadMedia();
 
             if (!media) return;
-
-            console.log('IMAGE RECEIVED');
 
             queue.push({
                 chatId: message.from,
@@ -128,22 +110,20 @@ client.on('message', async message => {
             );
 
             queue.shift();
+
             saveQueue();
         }
 
-        // ======================
         // GIF STICKER
-        // ======================
         if (
             message.hasMedia &&
             message.body === '!gif'
         ) {
 
-            const media = await message.downloadMedia();
+            const media =
+                await message.downloadMedia();
 
             if (!media) return;
-
-            console.log('GIF RECEIVED');
 
             queue.push({
                 chatId: message.from,
@@ -160,6 +140,7 @@ client.on('message', async message => {
             );
 
             queue.shift();
+
             saveQueue();
         }
 
@@ -170,25 +151,20 @@ client.on('message', async message => {
         try {
 
             await message.reply(
-                '⚠️ Bot error. Saved in queue.'
+                '⚠️ Error processing sticker.'
             );
 
         } catch {}
     }
 });
 
-// ======================
-// PROCESS STICKER
-// ======================
 async function processSticker(
     chatId,
     mediaData,
     isGif = false
 ) {
 
-    // ======================
-    // GIF STICKERS
-    // ======================
+    // GIF
     if (isGif) {
 
         const media = new MessageMedia(
@@ -197,23 +173,25 @@ async function processSticker(
             'sticker.mp4'
         );
 
-        await client.sendMessage(chatId, media, {
+        await client.sendMessage(
+            chatId,
+            media,
+            {
 
-            sendMediaAsSticker: true,
+                sendMediaAsSticker: true,
 
-            stickerAuthor: 'Rodrips',
+                stickerAuthor: 'Rodrips',
 
-            stickerName: 'StickerBot'
-        });
+                stickerName: 'StickerBot'
+            }
+        );
 
         console.log('GIF STICKER SENT');
 
         return;
     }
 
-    // ======================
-    // IMAGE STICKERS
-    // ======================
+    // IMAGE
     const buffer = Buffer.from(
         mediaData,
         'base64'
@@ -232,9 +210,6 @@ async function processSticker(
     let resizedWidth;
     let resizedHeight;
 
-    // ======================
-    // KEEP FULL IMAGE
-    // ======================
     if (width > height) {
 
         resizedWidth = size;
@@ -252,9 +227,6 @@ async function processSticker(
         );
     }
 
-    // ======================
-    // CENTER IMAGE
-    // ======================
     const left = Math.floor(
         (size - resizedWidth) / 2
     );
@@ -263,9 +235,6 @@ async function processSticker(
         (size - resizedHeight) / 2
     );
 
-    // ======================
-    // PROCESS IMAGE
-    // ======================
     const processed = await image
 
         .resize(
@@ -325,9 +294,6 @@ async function processSticker(
     console.log('STICKER SENT');
 }
 
-// ======================
-// DISCONNECTED
-// ======================
 client.on(
     'disconnected',
     reason => {
@@ -339,7 +305,4 @@ client.on(
     }
 );
 
-// ======================
-// START BOT
-// ======================
 client.initialize();
