@@ -1,217 +1,242 @@
-const qrcode = require('qrcode-terminal')
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
 
-const {
-    Client,
-    LocalAuth,
-    MessageMedia
-} = require('whatsapp-web.js')
+const QUEUE_FILE = './queue.json';
 
-const sharp = require('sharp')
+// ======================
+// LOAD QUEUE
+// ======================
+let queue = [];
 
-const ffmpeg = require('fluent-ffmpeg')
-const ffmpegPath = require('ffmpeg-static')
+if (fs.existsSync(QUEUE_FILE)) {
+    try {
+        queue = JSON.parse(fs.readFileSync(QUEUE_FILE));
+    } catch {
+        queue = [];
+    }
+}
 
-ffmpeg.setFfmpegPath(ffmpegPath)
+// ======================
+// SAVE QUEUE
+// ======================
+function saveQueue() {
+    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2));
+}
 
+// ======================
+// CLIENT
+// ======================
 const client = new Client({
-
-    authStrategy: new LocalAuth(),
-
+    authStrategy: new LocalAuth({
+        dataPath: './session'
+    }),
     puppeteer: {
-
-        executablePath:
-        'C:/Program Files/Google/Chrome/Application/chrome.exe',
-
-        headless: 'new',
-
+        headless: true,
         args: [
             '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
+            '--disable-setuid-sandbox'
         ]
-    },
+    }
+});
 
-    ffmpegPath: ffmpegPath
-})
+// ======================
+// QR
+// ======================
+client.on('qr', qr => {
+    console.log('SCAN QR CODE');
+    qrcode.generate(qr, { small: true });
+});
 
-client.on('qr', (qr) => {
+// ======================
+// READY
+// ======================
+client.on('ready', async () => {
+    console.log('BOT READY 🎉');
 
-    qrcode.generate(qr, {
-        small: true
-    })
+    // Process queued messages
+    if (queue.length > 0) {
+        console.log(`PROCESSING ${queue.length} QUEUED ITEMS`);
 
-    console.log('SCAN QR CODE')
-})
+        for (const item of queue) {
+            try {
+                await processSticker(item.chatId, item.mediaData, item.isGif);
+            } catch (err) {
+                console.log('QUEUE ERROR:', err);
+            }
+        }
 
-client.on('ready', () => {
+        queue = [];
+        saveQueue();
+    }
+});
 
-    console.log('BOT READY 🎉')
-})
-
-client.on('message', async (message) => {
-
-    // Ignore statuses
-    if (
-        message.from === 'status@broadcast'
-    ) return
+// ======================
+// MESSAGE HANDLER
+// ======================
+client.on('message', async message => {
 
     try {
 
-        // Must contain media
-        if (!message.hasMedia) return
+        // ======================
+        // IMAGE
+        // ======================
+        if (message.hasMedia && message.body === '!s') {
 
-        // Must contain command
-        if (
-            message.body !== '!s'
-        ) return
+            const media = await message.downloadMedia();
 
-        const media =
-            await message.downloadMedia()
+            if (!media) return;
 
-        // =========================
-        // IMAGE STICKERS
-        // =========================
+            console.log('IMAGE RECEIVED');
 
-        if (
-            media.mimetype.startsWith('image/')
-        ) {
+            queue.push({
+                chatId: message.from,
+                mediaData: media.data,
+                isGif: false
+            });
 
-            console.log('IMAGE RECEIVED')
+            saveQueue();
 
-            const imageBuffer =
-                Buffer.from(
-                    media.data,
-                    'base64'
-                )
+            await processSticker(message.from, media.data, false);
 
-            const image =
-                sharp(imageBuffer)
+            queue.shift();
+            saveQueue();
 
-            const metadata =
-                await image.metadata()
-
-            const width = metadata.width
-            const height = metadata.height
-
-            const ratio = height / width
-
-            let fitMode = 'contain'
-
-            // Square-ish
-            if (
-                Math.abs(width - height) < 120
-            ) {
-
-                fitMode = 'cover'
-            }
-
-            // Slight portrait
-            else if (
-                ratio > 1 &&
-                ratio < 1.45
-            ) {
-
-                fitMode = 'cover'
-            }
-
-            // Very tall portrait
-            else if (
-                ratio >= 1.45
-            ) {
-
-                fitMode = 'contain'
-            }
-
-            // Landscape
-            else {
-
-                fitMode = 'contain'
-            }
-
-            const webpBuffer =
-                await image
-
-                .resize(512, 512, {
-
-                    fit: fitMode,
-
-                    position: 'centre',
-
-                    background: {
-                        r: 0,
-                        g: 0,
-                        b: 0,
-                        alpha: 0
-                    }
-                })
-
-                .webp({
-                    quality: 95
-                })
-
-                .toBuffer()
-
-            const stickerMedia =
-                new MessageMedia(
-                    'image/webp',
-                    webpBuffer.toString('base64')
-                )
-
-            await client.sendMessage(
-                message.from,
-                stickerMedia,
-                {
-                    sendMediaAsSticker: true,
-                    stickerAuthor: 'Rodri',
-                    stickerName: 'StickerBot'
-                }
-            )
-
-            console.log('IMAGE STICKER SENT')
         }
 
-        // =========================
-        // VIDEO / GIF STICKERS
-        // =========================
+        // ======================
+        // GIF / VIDEO
+        // ======================
+        if (message.hasMedia && message.body === '!gif') {
 
-        else if (
-            media.mimetype.startsWith('video/')
-        ) {
+            const media = await message.downloadMedia();
 
-            console.log('VIDEO RECEIVED')
+            if (!media) return;
 
-            await client.sendMessage(
-                message.from,
-                media,
-                {
-                    sendMediaAsSticker: true,
-                    stickerAuthor: 'Rodri',
-                    stickerName: 'StickerBot'
-                }
-            )
+            console.log('VIDEO RECEIVED');
 
-            console.log('VIDEO STICKER SENT')
-        }
+            queue.push({
+                chatId: message.from,
+                mediaData: media.data,
+                isGif: true
+            });
 
-        else {
+            saveQueue();
 
-            await message.reply(
-                'Send image/video with caption !s'
-            )
+            await processSticker(message.from, media.data, true);
+
+            queue.shift();
+            saveQueue();
         }
 
     } catch (err) {
 
-        console.log(err)
+        console.log(err);
 
-        await message.reply(
-            'Error creating sticker 😭'
-        )
+        try {
+            await message.reply('⚠️ Bot error, item saved in queue.');
+        } catch {}
+
     }
-})
 
-client.initialize()
+});
+
+// ======================
+// PROCESS STICKER
+// ======================
+async function processSticker(chatId, mediaData, isGif = false) {
+
+    // ======================
+    // GIF STICKER
+    // ======================
+    if (isGif) {
+
+        const media = new MessageMedia(
+            'video/mp4',
+            mediaData,
+            'sticker.mp4'
+        );
+
+        await client.sendMessage(chatId, media, {
+            sendMediaAsSticker: true,
+            stickerAuthor: 'Rodrips',
+            stickerName: 'StickerBot'
+        });
+
+        console.log('GIF STICKER SENT');
+
+        return;
+    }
+
+    // ======================
+    // IMAGE STICKER
+    // ======================
+    const buffer = Buffer.from(mediaData, 'base64');
+
+    const image = sharp(buffer);
+
+    const metadata = await image.metadata();
+
+    const size = 512;
+
+    let width = metadata.width;
+    let height = metadata.height;
+
+    let resizedWidth;
+    let resizedHeight;
+
+    if (width > height) {
+        resizedWidth = size;
+        resizedHeight = Math.round((height / width) * size);
+    } else {
+        resizedHeight = size;
+        resizedWidth = Math.round((width / height) * size);
+    }
+
+    const left = Math.floor((size - resizedWidth) / 2);
+    const top = Math.floor((size - resizedHeight) / 2);
+
+    const processed = await image
+        .resize(resizedWidth, resizedHeight)
+        .extend({
+            top,
+            bottom: size - resizedHeight - top,
+            left,
+            right: size - resizedWidth - left,
+            background: {
+                r: 0,
+                g: 0,
+                b: 0,
+                alpha: 0
+            }
+        })
+        .webp()
+        .toBuffer();
+
+    const stickerMedia = new MessageMedia(
+        'image/webp',
+        processed.toString('base64')
+    );
+
+    await client.sendMessage(chatId, stickerMedia, {
+        sendMediaAsSticker: true,
+        stickerAuthor: 'Rodrips',
+        stickerName: 'StickerBot'
+    });
+
+    console.log('STICKER SENT');
+}
+
+// ======================
+// DISCONNECTED
+// ======================
+client.on('disconnected', reason => {
+    console.log('DISCONNECTED:', reason);
+});
+
+// ======================
+// START
+// ======================
+client.initialize();
