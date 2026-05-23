@@ -1,5 +1,4 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const sharp = require('sharp');
 const fs = require('fs');
 
@@ -25,16 +24,12 @@ function saveQueue() {
 const client = new Client({
 
     authStrategy: new LocalAuth({
-        dataPath: './session'
+        dataPath: '/data/session'
     }),
 
     puppeteer: {
 
         headless: true,
-
-        executablePath:
-            process.env.PUPPETEER_EXECUTABLE_PATH
-            || '/usr/bin/chromium-browser',
 
         args: [
             '--no-sandbox',
@@ -47,9 +42,9 @@ const client = new Client({
 
 client.on('qr', qr => {
 
-    console.log('\nCOPY THIS QR STRING:\n');
+    console.log('\n=== QR STRING ===\n');
     console.log(qr);
-    console.log('\nPASTE IT INTO A QR GENERATOR\n');
+    console.log('\n=================\n');
 });
 
 client.on('ready', async () => {
