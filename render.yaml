@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: stickerbot
+    env: node
+    buildCommand: npm install
+    startCommand: node index.js
