@@ -2,7 +2,6 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const sharp = require('sharp');
 const fs = require('fs');
-const puppeteer = require('puppeteer');
 
 const QUEUE_FILE = './queue.json';
 
@@ -30,8 +29,6 @@ const client = new Client({
     }),
 
     puppeteer: {
-
-        executablePath: puppeteer.executablePath(),
 
         headless: true,
 
@@ -89,7 +86,7 @@ client.on('message', async message => {
 
     try {
 
-        // IMAGE STICKER
+        // IMAGE
         if (
             message.hasMedia &&
             message.body === '!s'
@@ -119,7 +116,7 @@ client.on('message', async message => {
             saveQueue();
         }
 
-        // GIF STICKER
+        // GIF
         if (
             message.hasMedia &&
             message.body === '!gif'
