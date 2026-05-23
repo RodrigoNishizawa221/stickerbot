@@ -2,7 +2,6 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const sharp = require('sharp');
 const fs = require('fs');
-const path = require('path');
 
 const QUEUE_FILE = './queue.json';
 
@@ -33,8 +32,12 @@ const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './session'
     }),
+
     puppeteer: {
         headless: true,
+
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox'
@@ -43,27 +46,43 @@ const client = new Client({
 });
 
 // ======================
-// QR
+// QR CODE
 // ======================
 client.on('qr', qr => {
+
     console.log('SCAN QR CODE');
-    qrcode.generate(qr, { small: true });
+
+    qrcode.generate(qr, {
+        small: true
+    });
 });
 
 // ======================
 // READY
 // ======================
 client.on('ready', async () => {
+
     console.log('BOT READY 🎉');
 
-    // Process queued messages
+    // ======================
+    // PROCESS QUEUE
+    // ======================
     if (queue.length > 0) {
+
         console.log(`PROCESSING ${queue.length} QUEUED ITEMS`);
 
         for (const item of queue) {
+
             try {
-                await processSticker(item.chatId, item.mediaData, item.isGif);
+
+                await processSticker(
+                    item.chatId,
+                    item.mediaData,
+                    item.isGif
+                );
+
             } catch (err) {
+
                 console.log('QUEUE ERROR:', err);
             }
         }
@@ -74,16 +93,19 @@ client.on('ready', async () => {
 });
 
 // ======================
-// MESSAGE HANDLER
+// MESSAGE EVENT
 // ======================
 client.on('message', async message => {
 
     try {
 
         // ======================
-        // IMAGE
+        // IMAGE STICKER
         // ======================
-        if (message.hasMedia && message.body === '!s') {
+        if (
+            message.hasMedia &&
+            message.body === '!s'
+        ) {
 
             const media = await message.downloadMedia();
 
@@ -99,23 +121,29 @@ client.on('message', async message => {
 
             saveQueue();
 
-            await processSticker(message.from, media.data, false);
+            await processSticker(
+                message.from,
+                media.data,
+                false
+            );
 
             queue.shift();
             saveQueue();
-
         }
 
         // ======================
-        // GIF / VIDEO
+        // GIF STICKER
         // ======================
-        if (message.hasMedia && message.body === '!gif') {
+        if (
+            message.hasMedia &&
+            message.body === '!gif'
+        ) {
 
             const media = await message.downloadMedia();
 
             if (!media) return;
 
-            console.log('VIDEO RECEIVED');
+            console.log('GIF RECEIVED');
 
             queue.push({
                 chatId: message.from,
@@ -125,7 +153,11 @@ client.on('message', async message => {
 
             saveQueue();
 
-            await processSticker(message.from, media.data, true);
+            await processSticker(
+                message.from,
+                media.data,
+                true
+            );
 
             queue.shift();
             saveQueue();
@@ -136,20 +168,26 @@ client.on('message', async message => {
         console.log(err);
 
         try {
-            await message.reply('⚠️ Bot error, item saved in queue.');
+
+            await message.reply(
+                '⚠️ Bot error. Saved in queue.'
+            );
+
         } catch {}
-
     }
-
 });
 
 // ======================
 // PROCESS STICKER
 // ======================
-async function processSticker(chatId, mediaData, isGif = false) {
+async function processSticker(
+    chatId,
+    mediaData,
+    isGif = false
+) {
 
     // ======================
-    // GIF STICKER
+    // GIF STICKERS
     // ======================
     if (isGif) {
 
@@ -160,8 +198,11 @@ async function processSticker(chatId, mediaData, isGif = false) {
         );
 
         await client.sendMessage(chatId, media, {
+
             sendMediaAsSticker: true,
+
             stickerAuthor: 'Rodrips',
+
             stickerName: 'StickerBot'
         });
 
@@ -171,13 +212,17 @@ async function processSticker(chatId, mediaData, isGif = false) {
     }
 
     // ======================
-    // IMAGE STICKER
+    // IMAGE STICKERS
     // ======================
-    const buffer = Buffer.from(mediaData, 'base64');
+    const buffer = Buffer.from(
+        mediaData,
+        'base64'
+    );
 
     const image = sharp(buffer);
 
-    const metadata = await image.metadata();
+    const metadata =
+        await image.metadata();
 
     const size = 512;
 
@@ -187,24 +232,63 @@ async function processSticker(chatId, mediaData, isGif = false) {
     let resizedWidth;
     let resizedHeight;
 
+    // ======================
+    // KEEP FULL IMAGE
+    // ======================
     if (width > height) {
+
         resizedWidth = size;
-        resizedHeight = Math.round((height / width) * size);
+
+        resizedHeight = Math.round(
+            (height / width) * size
+        );
+
     } else {
+
         resizedHeight = size;
-        resizedWidth = Math.round((width / height) * size);
+
+        resizedWidth = Math.round(
+            (width / height) * size
+        );
     }
 
-    const left = Math.floor((size - resizedWidth) / 2);
-    const top = Math.floor((size - resizedHeight) / 2);
+    // ======================
+    // CENTER IMAGE
+    // ======================
+    const left = Math.floor(
+        (size - resizedWidth) / 2
+    );
 
+    const top = Math.floor(
+        (size - resizedHeight) / 2
+    );
+
+    // ======================
+    // PROCESS IMAGE
+    // ======================
     const processed = await image
-        .resize(resizedWidth, resizedHeight)
+
+        .resize(
+            resizedWidth,
+            resizedHeight
+        )
+
         .extend({
+
             top,
-            bottom: size - resizedHeight - top,
+
+            bottom:
+                size -
+                resizedHeight -
+                top,
+
             left,
-            right: size - resizedWidth - left,
+
+            right:
+                size -
+                resizedWidth -
+                left,
+
             background: {
                 r: 0,
                 g: 0,
@@ -212,19 +296,31 @@ async function processSticker(chatId, mediaData, isGif = false) {
                 alpha: 0
             }
         })
-        .webp()
+
+        .webp({
+            quality: 100
+        })
+
         .toBuffer();
 
-    const stickerMedia = new MessageMedia(
-        'image/webp',
-        processed.toString('base64')
-    );
+    const stickerMedia =
+        new MessageMedia(
+            'image/webp',
+            processed.toString('base64')
+        );
 
-    await client.sendMessage(chatId, stickerMedia, {
-        sendMediaAsSticker: true,
-        stickerAuthor: 'Rodrips',
-        stickerName: 'StickerBot'
-    });
+    await client.sendMessage(
+        chatId,
+        stickerMedia,
+        {
+
+            sendMediaAsSticker: true,
+
+            stickerAuthor: 'Rodrips',
+
+            stickerName: 'StickerBot'
+        }
+    );
 
     console.log('STICKER SENT');
 }
@@ -232,11 +328,18 @@ async function processSticker(chatId, mediaData, isGif = false) {
 // ======================
 // DISCONNECTED
 // ======================
-client.on('disconnected', reason => {
-    console.log('DISCONNECTED:', reason);
-});
+client.on(
+    'disconnected',
+    reason => {
+
+        console.log(
+            'DISCONNECTED:',
+            reason
+        );
+    }
+);
 
 // ======================
-// START
+// START BOT
 // ======================
 client.initialize();

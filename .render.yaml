@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: stickerbot
+    env: node
+    buildCommand: chmod +x render-build.sh && ./render-build.sh
+    startCommand: node index.js
