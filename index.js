@@ -83,15 +83,32 @@ client.on('message', async message => {
 
     try {
 
+        console.log('MESSAGE RECEIVED');
+        console.log('BODY:', message.body);
+        console.log('HAS MEDIA:', message.hasMedia);
+
+        const command =
+            message.body
+                ?.trim()
+                ?.toLowerCase();
+
+        // IMAGE STICKER
         if (
             message.hasMedia &&
-            message.body === '!s'
+            command === '!s'
         ) {
+
+            console.log('IMAGE COMMAND DETECTED');
 
             const media =
                 await message.downloadMedia();
 
-            if (!media) return;
+            if (!media) {
+
+                console.log('NO MEDIA');
+
+                return;
+            }
 
             queue.push({
                 chatId: message.from,
@@ -112,15 +129,23 @@ client.on('message', async message => {
             saveQueue();
         }
 
+        // GIF STICKER
         if (
             message.hasMedia &&
-            message.body === '!gif'
+            command === '!gif'
         ) {
+
+            console.log('GIF COMMAND DETECTED');
 
             const media =
                 await message.downloadMedia();
 
-            if (!media) return;
+            if (!media) {
+
+                console.log('NO MEDIA');
+
+                return;
+            }
 
             queue.push({
                 chatId: message.from,
@@ -161,6 +186,7 @@ async function processSticker(
     isGif = false
 ) {
 
+    // GIF
     if (isGif) {
 
         const media = new MessageMedia(
@@ -187,6 +213,7 @@ async function processSticker(
         return;
     }
 
+    // IMAGE
     const buffer = Buffer.from(
         mediaData,
         'base64'
