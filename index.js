@@ -32,6 +32,10 @@ const client = new Client({
 
         headless: true,
 
+        executablePath:
+            process.env.PUPPETEER_EXECUTABLE_PATH
+            || '/usr/bin/chromium-browser',
+
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -86,7 +90,6 @@ client.on('message', async message => {
 
     try {
 
-        // IMAGE
         if (
             message.hasMedia &&
             message.body === '!s'
@@ -116,7 +119,6 @@ client.on('message', async message => {
             saveQueue();
         }
 
-        // GIF
         if (
             message.hasMedia &&
             message.body === '!gif'
@@ -166,7 +168,6 @@ async function processSticker(
     isGif = false
 ) {
 
-    // GIF
     if (isGif) {
 
         const media = new MessageMedia(
@@ -193,7 +194,6 @@ async function processSticker(
         return;
     }
 
-    // IMAGE
     const buffer = Buffer.from(
         mediaData,
         'base64'
@@ -295,16 +295,5 @@ async function processSticker(
 
     console.log('STICKER SENT');
 }
-
-client.on(
-    'disconnected',
-    reason => {
-
-        console.log(
-            'DISCONNECTED:',
-            reason
-        );
-    }
-);
 
 client.initialize();
