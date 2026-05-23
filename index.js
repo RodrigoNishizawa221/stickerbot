@@ -1,8 +1,8 @@
-const puppeteer = require('puppeteer');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const sharp = require('sharp');
 const fs = require('fs');
+const puppeteer = require('puppeteer');
 
 const QUEUE_FILE = './queue.json';
 
@@ -31,16 +31,15 @@ const client = new Client({
 
     puppeteer: {
 
-        browserWSEndpoint: undefined,
-
-        executablePath:
-            puppeteer.executablePath(),
+        executablePath: puppeteer.executablePath(),
 
         headless: true,
 
         args: [
             '--no-sandbox',
-            '--disable-setuid-sandbox'
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
         ]
     }
 });
@@ -90,7 +89,7 @@ client.on('message', async message => {
 
     try {
 
-        // IMAGE
+        // IMAGE STICKER
         if (
             message.hasMedia &&
             message.body === '!s'
@@ -120,7 +119,7 @@ client.on('message', async message => {
             saveQueue();
         }
 
-        // GIF
+        // GIF STICKER
         if (
             message.hasMedia &&
             message.body === '!gif'
