@@ -47,11 +47,9 @@ const client = new Client({
 
 client.on('qr', qr => {
 
-    console.log('SCAN QR CODE');
-
-    qrcode.generate(qr, {
-        small: true
-    });
+    console.log('\nCOPY THIS QR STRING:\n');
+    console.log(qr);
+    console.log('\nPASTE IT INTO A QR GENERATOR\n');
 });
 
 client.on('ready', async () => {
