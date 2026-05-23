@@ -1,8 +1,6 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const sharp = require('sharp');
 
-const lastMediaByChat = new Map();
-
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: '/data/session'
@@ -30,83 +28,32 @@ client.on('ready', () => {
 
 client.on('message', async message => {
     try {
-        const command = (message.body || '').trim().toLowerCase();
+        const caption = (message.body || '').trim().toLowerCase();
 
         console.log('MSG:', {
-            from: message.from,
-            body: command,
-            hasMedia: message.hasMedia,
-            hasQuotedMsg: message.hasQuotedMsg
+            body: caption,
+            hasMedia: message.hasMedia
         });
 
-        // Save any media received, even without command
-        if (message.hasMedia) {
-            const media = await message.downloadMedia();
+        if (!message.hasMedia) return;
 
-            if (media) {
-                lastMediaByChat.set(message.from, {
-                    data: media.data,
-                    mimetype: media.mimetype,
-                    time: Date.now()
-                });
+        if (caption !== '!s' && caption !== '!gif') return;
 
-                console.log('MEDIA SAVED:', media.mimetype);
-            }
-        }
+        const media = await message.downloadMedia();
 
-        // Only continue if command is !s or !gif
-        if (command !== '!s' && command !== '!gif') return;
-
-        let mediaData = null;
-        let mimetype = null;
-
-        // Case 1: command is caption on media
-        if (message.hasMedia) {
-            const media = await message.downloadMedia();
-
-            if (media) {
-                mediaData = media.data;
-                mimetype = media.mimetype;
-            }
-        }
-
-        // Case 2: command is reply to media
-        if (!mediaData && message.hasQuotedMsg) {
-            const quoted = await message.getQuotedMessage();
-
-            if (quoted && quoted.hasMedia) {
-                const media = await quoted.downloadMedia();
-
-                if (media) {
-                    mediaData = media.data;
-                    mimetype = media.mimetype;
-                }
-            }
-        }
-
-        // Case 3: command after media in same chat
-        if (!mediaData) {
-            const saved = lastMediaByChat.get(message.from);
-
-            if (saved && Date.now() - saved.time < 5 * 60 * 1000) {
-                mediaData = saved.data;
-                mimetype = saved.mimetype;
-            }
-        }
-
-        if (!mediaData) {
-            await message.reply('Send an image/video with !s, or reply to media with !s.');
+        if (!media) {
+            await message.reply('Could not download media.');
             return;
         }
 
         const isGifOrVideo =
-            command === '!gif' ||
-            mimetype.startsWith('video/');
+            caption === '!gif' ||
+            media.mimetype.startsWith('video/');
 
         await processSticker(
             message.from,
-            mediaData,
-            mimetype,
+            media.data,
+            media.mimetype,
             isGifOrVideo
         );
 
