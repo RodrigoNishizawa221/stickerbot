@@ -26,28 +26,36 @@ client.on('ready', () => {
     console.log('BOT READY 🎉');
 });
 
-client.on('message', async message => {
+client.on('message_create', async message => {
     try {
-        const caption = (message.body || '').trim().toLowerCase();
+        const command = (message.body || '').trim().toLowerCase();
 
         console.log('MSG:', {
-            body: caption,
-            hasMedia: message.hasMedia
+            from: message.from,
+            to: message.to,
+            body: command,
+            hasMedia: message.hasMedia,
+            type: message.type,
+            fromMe: message.fromMe
         });
 
         if (!message.hasMedia) return;
 
-        if (caption !== '!s' && caption !== '!gif') return;
+        if (command !== '!s' && command !== '!gif') return;
+
+        console.log('COMMAND MEDIA DETECTED');
 
         const media = await message.downloadMedia();
 
         if (!media) {
-            await message.reply('Could not download media.');
+            console.log('MEDIA DOWNLOAD FAILED');
             return;
         }
 
+        console.log('MEDIA TYPE:', media.mimetype);
+
         const isGifOrVideo =
-            caption === '!gif' ||
+            command === '!gif' ||
             media.mimetype.startsWith('video/');
 
         await processSticker(
@@ -59,10 +67,6 @@ client.on('message', async message => {
 
     } catch (err) {
         console.log('ERROR:', err);
-
-        try {
-            await message.reply('⚠️ Error creating sticker.');
-        } catch {}
     }
 });
 
@@ -121,9 +125,7 @@ async function processSticker(chatId, mediaData, mimetype, isGifOrVideo) {
                 alpha: 0
             }
         })
-        .webp({
-            quality: 100
-        })
+        .webp({ quality: 100 })
         .toBuffer();
 
     const stickerMedia = new MessageMedia(
