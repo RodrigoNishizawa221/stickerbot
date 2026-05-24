@@ -3,7 +3,7 @@ const sharp = require('sharp');
 
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: '/data/session'
+        dataPath: './session'
     }),
 
     puppeteer: {
